@@ -2,10 +2,12 @@ import heapq
 import math
 import sys
 
-
 class Map:
     def __init__(self, input_lines):
+        if not input_lines:
+            raise ValueError("Input is empty or not provided")
         self.rows, self.cols = map(int, input_lines[0].split())
+        # Rest of your initialization code...
         start_pos = tuple(map(int, input_lines[1].split()))
         end_pos = tuple(map(int, input_lines[2].split()))
         self.start = (start_pos[0] - 1, start_pos[1] - 1)
