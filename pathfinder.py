@@ -1,178 +1,145 @@
 import heapq
+import math
+import sys
+
+
+class Map:
+    def __init__(self, rows, cols, start_pos, end_pos, grid):
+        self.rows = rows
+        self.cols = cols
+        self.start = (start_pos[0] - 1, start_pos[1] - 1)
+        self.end = (end_pos[0] - 1, end_pos[1] - 1)
+        self.grid = grid
+
+    def is_valid(self, i, j):
+        return 0 <= i < self.rows and 0 <= j < self.cols
+
+    def is_obstacle(self, i, j):
+        return self.grid[i][j] == 'X'
+
+    def get_elevation(self, i, j):
+        return int(self.grid[i][j])
+
+    def get_neighbors(self, i, j):
+        neighbors = []
+        deltas = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        for di, dj in deltas:
+            ni, nj = i + di, j + dj
+            if self.is_valid(ni, nj) and not self.is_obstacle(ni, nj):
+                neighbors.append((ni, nj))
+        return neighbors
+
 
 class Node:
-    def __init__(self, position, parent=None, action=None):
+    def __init__(self, position, parent=None, cost=0, heuristic=0):
         self.position = position
         self.parent = parent
-        self.action = action
-        self.cost = 0
-
-    def __eq__(self, other):
-        return self.position == other.position
-
-    def __hash__(self):
-        return hash(self.position)
+        self.cost = cost
+        self.heuristic = heuristic
 
     def __lt__(self, other):
-        return self.cost < other.cost
+        return (self.cost + self.heuristic) < (other.cost + other.heuristic)
 
-def read_map(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-        size = tuple(map(int, lines[0].split()))
-        start = tuple(map(int, lines[1].split()))
-        goal = tuple(map(int, lines[2].split()))
-        grid = []
-        for line in lines[3:]:
-            row = []
-            for char in line.strip():
-                if char == 'X':
-                    row.append(char)
-                else:
-                    row.append(int(char))
-            grid.append(row)
 
-    return size, start, goal, grid
+class Pathfinder:
+    def __init__(self, search_algorithm, heuristic=None):
+        self.search_algorithm = search_algorithm
+        self.heuristic = heuristic
 
-def bfs(map_grid, start, goal):
-    from collections import deque
+    def bfs(self, start, end, map):
+        fringe = [Node(start)]
+        closed = set()
 
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    
-    start_node = Node(start)
-    goal_node = Node(goal)
-    frontier = deque([start_node])
-    explored = set()
-    
-    while frontier:
-        current_node = frontier.popleft()
-        explored.add(current_node.position)
+        while fringe:
+            node = fringe.pop(0)
+            if node.position == end:
+                return self.construct_path(node)
+            closed.add(node.position)
+            for neighbor in map.get_neighbors(*node.position):
+                if neighbor not in closed:
+                    fringe.append(Node(neighbor, node))
 
-        if current_node.position == goal:
-            return construct_path(current_node)
-        
-        for direction in directions:
-            new_position = (current_node.position[0] + direction[0],
-                            current_node.position[1] + direction[1])
-            
-            if (0 <= new_position[0] < len(map_grid)) and (0 <= new_position[1] < len(map_grid[0])):
-                if map_grid[new_position[0]][new_position[1]] != 'X':
-                    child = Node(new_position, current_node)
-                    
-                    if child.position not in explored and all(frontier_node.position != new_position for frontier_node in frontier):
-                        frontier.append(child)
-    return None
+    def ucs(self, start, end, map):
+        fringe = [(0, Node(start))]
+        closed = set()
 
-def construct_path(node):
-    path = []
-    while node.parent is not None:
-        path.append(node.position)
-        node = node.parent
-    path.append(node.position)
-    return path[::-1]
+        while fringe:
+            cost, node = heapq.heappop(fringe)
+            if node.position == end:
+                return self.construct_path(node)
+            closed.add(node.position)
+            for neighbor in map.get_neighbors(*node.position):
+                new_cost = node.cost + map.get_elevation(*neighbor) + 1
+                if neighbor not in closed:
+                    heapq.heappush(fringe, (new_cost, Node(neighbor, node, new_cost)))
 
-def update_map_with_path(map_grid, path):
-    updated_map = [row[:] for row in map_grid]
-    for position in path:
-        updated_map[position[0]][position[1]] = '*'
-    return updated_map
+    def euclidean_distance(self, pos1, pos2):
+        return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
-def manhattan_distance(start, goal):
-    return abs(start[0] - goal[0]) + abs(start[1] - goal[1])
+    def manhattan_distance(self, pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
-def euclidean_distance(start, goal):
-    return ((start[0] - goal[0]) ** 2 + (start[1] - goal[1]) ** 2) ** 0.5
+    def a_star(self, start, end, map):
+        fringe = [Node(start)]
+        closed = set()
 
-def ucs(map_grid, start, goal):
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    
-    frontier = []
-    heapq.heappush(frontier, (0, Node(start)))
-    explored = set()
+        while fringe:
+            node = heapq.heappop(fringe)
+            if node.position == end:
+                return self.construct_path(node)
+            closed.add(node.position)
+            for neighbor in map.get_neighbors(*node.position):
+                if neighbor not in closed:
+                    cost = node.cost + map.get_elevation(*neighbor) + 1
+                    if self.heuristic == 'euclidean':
+                        heuristic = self.euclidean_distance(neighbor, end)
+                    else:
+                        heuristic = self.manhattan_distance(neighbor, end)
+                    heapq.heappush(fringe, (cost + heuristic, Node(neighbor, node, cost, heuristic)))
 
-    while frontier:
-        current_cost, current_node = heapq.heappop(frontier)
-        if current_node.position == goal:
-            return construct_path(current_node)
+    def construct_path(self, node):
+        path = []
+        while node:
+            path.append(node.position)
+            node = node.parent
+        return path[::-1]
 
-        explored.add(current_node.position)
+    def find_path(self, map):
+        start = map.start
+        end = map.end
+        if self.search_algorithm == 'bfs':
+            return self.bfs(start, end, map)
+        elif self.search_algorithm == 'ucs':
+            return self.ucs(start, end, map)
+        elif self.search_algorithm == 'astar':
+            return self.a_star(start, end, map)
 
-        for direction in directions:
-            new_position = (current_node.position[0] + direction[0],
-                            current_node.position[1] + direction[1])
-
-            if (0 <= new_position[0] < len(map_grid)) and (0 <= new_position[1] < len(map_grid[0])):
-                if map_grid[new_position[0]][new_position[1]] != 'X':
-                    child_cost = current_cost + 1
-                    child_node = Node(new_position, current_node)
-
-                    if new_position not in explored and not any(child_node.position == node.position and child_cost >= node.cost for _, node in frontier):
-                        heapq.heappush(frontier, (child_cost, child_node))
-
-    return None
-
-def a_star(map_grid, start, goal, heuristic=manhattan_distance):
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    
-    frontier = []
-    heapq.heappush(frontier, (0 + heuristic(start, goal), Node(start), 0))
-    explored = set()
-
-    while frontier:
-        current_total_cost, current_node, current_path_cost = heapq.heappop(frontier)
-        if current_node.position == goal:
-            return construct_path(current_node)
-
-        explored.add(current_node.position)
-
-        for direction in directions:
-            new_position = (current_node.position[0] + direction[0],
-                            current_node.position[1] + direction[1])
-
-            if (0 <= new_position[0] < len(map_grid)) and (0 <= new_position[1] < len(map_grid[0])):
-                if map_grid[new_position[0]][new_position[1]] != 'X':
-                    step_cost = 1
-                    child_cost = current_path_cost + step_cost
-                    child_node = Node(new_position, current_node)
-
-                    child_total_cost = child_cost + heuristic(new_position, goal)
-
-                    if new_position not in explored and not any(child_node.position == node.position and child_total_cost >= (node.cost + heuristic(node.position, goal)) for _, node, _ in frontier):
-                        heapq.heappush(frontier, (child_total_cost, child_node, child_cost))
-
-    return None
 
 if __name__ == "__main__":
-    # Read the map from file
-    map_file = "sample_map.txt"
-    size, start, goal, map_grid = read_map(map_file)
-    
-    # Run BFS, UCS, and A* with Manhattan heuristic
-    bfs_path = bfs(map_grid, start, goal)
-    ucs_path = ucs(map_grid, start, goal)
-    a_star_path = a_star(map_grid, start, goal, heuristic=manhattan_distance)
+    map_input = sys.stdin.readlines()
+    map_info = map_input[0].strip().split()
+    rows, cols = int(map_info[0]), int(map_info[1])
+    start_pos = tuple(map(int, map_input[1].strip().split()))
+    end_pos = tuple(map(int, map_input[2].strip().split()))
+    grid = [line.strip().split() for line in map_input[3:]]
 
-    # Print the paths if they exist
-    print("BFS path:")
-    if bfs_path:
-        updated_map = update_map_with_path(map_grid, bfs_path)
-        for row in updated_map:
-            print(''.join(str(cell) for cell in row))
-    else:
-        print("null")
+    map = Map(rows, cols, start_pos, end_pos, grid)
 
-    print("\nUCS path:")
-    if ucs_path:
-        updated_map = update_map_with_path(map_grid, ucs_path)
-        for row in updated_map:
-            print(''.join(str(cell) for cell in row))
-    else:
-        print("null")
+    algorithm = input().strip()
+    heuristic = input().strip() if algorithm == 'astar' else None
 
-    print("\nA* Search path with Manhattan heuristic:")
-    if a_star_path:
-        updated_map = update_map_with_path(map_grid, a_star_path)
-        for row in updated_map:
-            print(''.join(str(cell) for cell in row))
-    else:
-        print("null")
+    search_algorithm = Pathfinder(algorithm, heuristic)
+
+    path = search_algorithm.find_path(map)
+
+    for i in range(map.rows):
+        for j in range(map.cols):
+            if (i, j) == map.start:
+                print('1', end=' ')
+            elif (i, j) == map.end:
+                print('10', end=' ')
+            elif (i, j) in path:
+                print('*', end=' ')
+            else:
+                print(map.grid[i][j], end=' ')
+        print()
