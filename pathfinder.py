@@ -4,12 +4,13 @@ import sys
 
 
 class Map:
-    def __init__(self, rows, cols, start_pos, end_pos, grid):
-        self.rows = rows
-        self.cols = cols
+    def __init__(self, input_lines):
+        self.rows, self.cols = map(int, input_lines[0].split())
+        start_pos = tuple(map(int, input_lines[1].split()))
+        end_pos = tuple(map(int, input_lines[2].split()))
         self.start = (start_pos[0] - 1, start_pos[1] - 1)
         self.end = (end_pos[0] - 1, end_pos[1] - 1)
-        self.grid = grid
+        self.grid = [list(line.split()) for line in input_lines[3:]]
 
     def is_valid(self, i, j):
         return 0 <= i < self.rows and 0 <= j < self.cols
@@ -116,29 +117,21 @@ class Pathfinder:
 
 
 if __name__ == "__main__":
-    map_input = sys.stdin.readlines()
-    map_info = map_input[0].strip().split()
-    rows, cols = int(map_info[0]), int(map_info[1])
-    start_pos = tuple(map(int, map_input[1].strip().split()))
-    end_pos = tuple(map(int, map_input[2].strip().split()))
-    grid = [line.strip().split() for line in map_input[3:]]
+    if len(sys.argv) != 3:
+        print("Usage: program [algorithm] [heuristic]")
+        sys.exit(1)
 
-    map = Map(rows, cols, start_pos, end_pos, grid)
+    algorithm = sys.argv[1]
+    heuristic = sys.argv[2] if algorithm == 'astar' else None
 
-    algorithm = input().strip()
-    heuristic = input().strip() if algorithm == 'astar' else None
-
+    input_lines = sys.stdin.readlines()
+    map = Map(input_lines)
     search_algorithm = Pathfinder(algorithm, heuristic)
-
     path = search_algorithm.find_path(map)
 
     for i in range(map.rows):
         for j in range(map.cols):
-            if (i, j) == map.start:
-                print('1', end=' ')
-            elif (i, j) == map.end:
-                print('10', end=' ')
-            elif (i, j) in path:
+            if (i, j) in path:
                 print('*', end=' ')
             else:
                 print(map.grid[i][j], end=' ')
