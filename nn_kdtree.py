@@ -64,10 +64,16 @@ y_test = test_df['quality'].values
 #Build the kd-tree using the training data
 root = build_kd_tree(X_train, y_train)
 
-#Find the nearest neighbor of each point in the test data
+# Find the nearest neighbor of each point in the test data
 predictions = []
 for i in range(len(X_test)):
-nn_label = search(root, X_test[i])
+    nn_label = search(root, X_test[i])
+    predictions.append(nn_label)
+
+# Calculate accuracy of predictions
+accuracy = np.sum(predictions == y_test) / len(y_test)
+print("Accuracy:", accuracy)
+
 predictions.append(nn_label)
 
 #Calculate accuracy of predictions
