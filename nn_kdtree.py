@@ -52,16 +52,20 @@ def search(node, x):
 
 
 # Load the training and test data into pandas dataframes
-train_df = pd.read_csv('wine_quality_train.csv')
-test_df = pd.read_csv('wine_quality_test.csv')
+train_df = pd.read_csv('wine_quality_train.csv',sep='\s+')
+test_df = pd.read_csv('wine_quality_test.csv',sep='\s+')
 
-#Separate features and labels
+# Remove leading and trailing whitespaces from column names
+train_df.columns = train_df.columns.str.strip()
+test_df.columns = test_df.columns.str.strip()
+
+# Separate features and labels
 X_train = train_df.drop('quality', axis=1).values
 y_train = train_df['quality'].values
 X_test = test_df.drop('quality', axis=1).values
 y_test = test_df['quality'].values
 
-#Build the kd-tree using the training data
+# Build the kd-tree using the training data
 root = build_kd_tree(X_train, y_train)
 
 # Find the nearest neighbor of each point in the test data
@@ -71,11 +75,5 @@ for i in range(len(X_test)):
     predictions.append(nn_label)
 
 # Calculate accuracy of predictions
-accuracy = np.sum(predictions == y_test) / len(y_test)
-print("Accuracy:", accuracy)
-
-predictions.append(nn_label)
-
-#Calculate accuracy of predictions
 accuracy = np.sum(predictions == y_test) / len(y_test)
 print("Accuracy:", accuracy)
